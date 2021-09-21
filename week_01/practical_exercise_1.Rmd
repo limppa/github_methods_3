@@ -1,7 +1,7 @@
 ---
 title: "practical_exercise_1, Methods 3, 2021, autumn semester"
-author: '[FILL IN YOUR NAME]'
-date: "[FILL IN THE DATE]"
+author: 'Linus Backström'
+date: "15.9.2021"
 output: html_document
 ---
 
@@ -14,93 +14,6 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-# Practical Exercise 1
-The goals of today's exercise are:
-
-1) create a _GitHub_ account and link it with _RStudio_ and create a new repository 
-2) getting you back into _R_ and to get you acquainted with _Python_
-3) brushing up on the general linear model
-
-# 1) Creating a _GitHub_ account and linking it to RStudio
-
-## _GitHub_
-
-Go to www.github.com and sign up if you aren't already  
-![__Figure__: _GitHub_'s front page](images/github_front_page.png)  
-
-If you are not already using personal tokens for authentication, have a look here:  
-https://www.edgoad.com/2021/02/using-personal-access-tokens-with-git-and-github.html
-
-Then install _R_ and _RStudio_ if you haven't already
-
-## _R_
-
-### Mac and Windows
-_R_ can be downloaded and installed from https://mirrors.dotsrc.org/cran/ (Danish mirror)  
-
-### Linux
-Can also be installed from the link above, but it is more convenient to use your package manager, e.g.
-
-![__Figure__: my package manager](images/package_manager.png)
-
-### _RStudio_ (IDE: Integrated Development Editor)
-
-_RStudio_ can be downloaded from https://www.rstudio.com/products/rstudio/download/
-
-## Link _GitHub_ and _RStudio_
-
-Link your _GitHub_ account to _RStudio_ and create a repository for the assignments and practical exercises.  
-Follow this tutorial: https://happygitwithr.com (Chapter 12)
-
-# 2) Prepare your _R_ and _Python_ environments
-Today's first goal is to get your _R_ and _Python_ environments up and running  
-
-## _R_
-
-### _R_ Packages
-
-Make sure you can run _R Markdown_; create a new _R Markdown_ document - if you're asked to install extra packages, do so.  
-We'll need more packages later, but we'll install as we go...
-
-## _Python_
-
-Due to the fact that _Python_ packages have a lot of interdependencies that may cause compability problems if you keep everything in one big environment, it is advisable to use a package management system like _Conda_.  
-I propose using _Miniconda_ that can be downloaded from here: https://docs.conda.io/en/latest/miniconda.html (choose 64-bit)  
-  
-We'll not do much with it today, but will return to it for the machine learning part.  
-  
-An advantage is that separate environments can be maintained that are each focused on its own niche:  
-
-![__Figure__: my environments: _mne_ is for analysis of magnetoencephalographic data, _psychopy_ is for presenting experiment scenarios, _fsl_ is for processing magnetic resonance imaging data](images/list_of_environments.png)
-
-Then use the yml-file from _GitHub_ to create the appropriate environment:
-```{bash, eval=FALSE}
-# CODE TO BE RUN IN A BASH TERMINAL
-## create environment
-conda env create -f methods3_environment.yml
-## activate environment
-conda activate methods3
-## after activation, you can run Spyder, (IDE)
-spyder
-```
-
-![__Figure__: _Spyder_](images/spyder.png)
-
-### Check that it works
-
-```{python}
-a = 2 + 2
-b = a + 3
-print(b)
-
-a_list = [1, 'a', 2.3] # square brackets initialize lists that can contain any combination of any type of object (an integer, a string and a float in this case)
-## Note that Python is zero-indexed ()
-print(a_list[0]) ## prints the first entry
-print(a_list[1]) ## prints the second entry
-```
-### Zero-indexing (reference)
-https://www.cs.utexas.edu/users/EWD/transcriptions/EWD08xx/EWD831.html
 
 # 3) Brushing up on the General Linear Model
 
@@ -166,8 +79,96 @@ REMEMBER: In your report, make sure to include code that can reproduce the answe
 The general linear model: $Y = X \beta + \epsilon$:  
 Do a linear regression, expressing fuel usage as a function of weight using the function __lm__  
 ```{r, eval=FALSE}
-data(mtcars)
-model <- lm(formula=..., data=...)
+library(tidyverse)
+
+#1. Extract information from the model
+
+model <- lm(mpg~wt, data = mtcars) #We first make the model
+
+dmtx <- model.matrix(model) #We create a design matrix by extracting these values
+
+coefficients <- model$coefficients
+
+y <- mtcars$mpg
+
+y_hat <- model$fitted.values
+
+y_groundtruth <- mtcars$mpg
+
+epsilon <- model$residuals
+
+
+# Making a residual plot
+
+df <- data.frame(mtcars, y_hat, epsilon)
+
+ggplot(df, aes(x = wt, y = epsilon)) +
+  geom_abline(intercept = 0, slope = 0) +
+  geom_segment(aes(xend = wt, yend = 0+0*wt)) +
+  geom_point() +
+  theme_minimal()
+
+# y and y_hat shown as linear regression
+ggplot(df, aes(x = wt, y = mpg)) +
+  geom_smooth(method = lm, se = FALSE, color = 'black') +
+  geom_segment(aes(xend = wt, yend = y_hat)) +
+  geom_point() +
+  theme_minimal()
+
+
+#estimate beta via OLS by hand
+
+#First we add a third column to our design matrix by squaring x (since we are doing a quadratic/polynomial regression)
+
+dmtx <- as.data.frame(dmtx)
+
+dmtx$wt2 <- dmtx$wt**2
+
+dmtx <- as.matrix(dmtx) #We need to convert it back to a matrix in order to perform matrix operations on it 
+
+
+
+#We have our coefficients
+
+coefficients
+
+
+new_bhat <- solve(t(dmtx)%*%dmtx)%*%t(dmtx)%*%y_groundtruth #estimate beta for quadratic model
+
+new_bhat
+
+y_hat2 <-
+  new_bhat[3] * dmtx[, "wt2"] +
+  new_bhat[2] * dmtx[, "wt"] +
+  new_bhat[1]
+
+epsilon_quad <- y - y_hat2
+
+#We now conduct the quadratic regression
+
+model2 <- lm(mpg ~ wt + I(wt^2), data=mtcars)
+
+summary(model2)
+
+
+#We now compare the output of model2 with our manually computed beta values (which we found using OLS estimation)
+
+new_bhat
+
+model2$coefficients
+
+#They are precisely the same
+
+
+#plotting the linear vs quadratic model
+ggplot(mtcars,aes(x = wt, y = mpg)) + 
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x, se = FALSE, color = 'lightblue' ) +
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2), se = FALSE, color = 'orange', size = 1) +
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2) + I(x^3), se = FALSE, color = 'darkgreen', size = .5) +
+  theme_minimal()
+
+
 ```
 1. extract $\hat{\beta}$, $Y$, $\hat{Y}$, $X$ and $\epsilon$ from __model__ (hint: have a look at the function __model.matrix__)  
     i. create a plot that illustrates $Y$ and $\hat{Y}$ (if you are feeling ambitious, also include $\epsilon$ (hint: you can use the function __arrows__))
@@ -179,11 +180,52 @@ model <- lm(formula=..., data=...)
 Compare the plotted quadratic fit to the linear fit  
 
 1. which seems better?  
+  The quadratic fit.
 2. calculate the sum of squared errors, (show the calculation based on $\epsilon$). Which fit has the lower sum?  
+```{r}
+rss_lin <- sum((y - y_hat)^2)
+rss_quad <- sum((y- y_hat2)^2)
+
+rss_lin
+rss_quad
+```
+The quadratic fit has the lower sum.
+
 3. now make a cubic fit ($y = {\beta}_{3} x^3 + {\beta}_{2} x^2 + {\beta}_{1} x + {\beta}_{0}$) and compare it to the quadratic fit  
+```{r}
+dmtx <- cbind(dmtx, wt3 = mtcars$wt^3)
+t_dmtx <- t(dmtx)
+
+beta_estimate_cube <- (solve(t_dmtx %*% dmtx) %*% t_dmtx %*% y)
+beta_estimate_cube
+
+y_hat3 <- beta_estimate_cube[4] * dmtx[, "wt3"] + beta_estimate_cube[3] * dmtx[, "wt2"] + beta_estimate_cube[2] * dmtx[, "wt"] + beta_estimate_cube[1]
+epsilon_cube <- y - y_hat3
+
+```
+
     i. create a plot that illustrates $Y$ and $\hat{Y}$ for both the cubic and the quadratic fits (plot them in the same plot)  
-    ii. compare the sum of squared errors  
+```{r}
+ggplot(mtcars, aes(x = dmtx[, "wt"])) +
+  geom_point(aes(y = y)) +
+  geom_smooth(aes(y = y_hat2), method = lm, formula = y ~ x + I(x^2), color = "blue") +
+  geom_smooth(aes(y = y_hat3), method = lm, formula = y ~ x + I(x^2) + I(x^3), color = "red")
+```
+    
+    ii. compare the sum of squared errors 
+```{r}
+rss_cube <- sum((y - y_hat3)^2)
+
+rss_cube
+rss_quad
+```
+    The RSS of the cubic fit is just barely lower.
+    
     iii. what's the estimated value of the "cubic" (${\beta}_3$) parameter? Comment on this!  
+```{r}
+beta_estimate_cube[4]
+```
+    
 4. bonus question: which summary statistic is the fitted value (_Intercept_ or ${\beta}_0$ in $y = {\beta}_0$) below identical to?
 ```{r, echo=FALSE}
 lm(mpg ~ 1, data=mtcars)
@@ -192,7 +234,9 @@ lm(mpg ~ 1, data=mtcars)
 Doing a logistic regression - estimating the probability that a car has automatic transmission (0) or manual transmission (1) based on its weight
 ```{r, eval=FALSE}
 data(mtcars)
-logistic.model <- glm(formula=..., data=..., family='binomial)
+logistic.model <- glm(formula= am ~ wt, data=mtcars, family='binomial')
+
+summary(logistic.model)
 ```
 
 Probabilities live on the range $(0, 1)$ - using the so-called logit function as a "link-function" we can map these onto the range $(-\infty, \infty)$, i.e. the real numbers.  
@@ -206,10 +250,34 @@ inv.logit <- function(x) exp(x) / (1 + exp(x))
 ```
 
 1. plot the fitted values for __logistic.model__:  
+```{r}
+fv <- fitted.values(logistic.model)
+plot(fv, mtcars$wt)
+```
+
     i. what is the relation between the __linear.predictors__ and the __fitted_values__ of the __logistic.model__ object?
+```{r}
+
+```
+    
 2. plot the logistic function, you've estimated based on your $\hat{\beta}$, (not just the fitted values). Use an _xlim_ of (0, 7)
+```{r}
+logistic.beta <- coef(logistic.model)
+
+logistic.func <- function(x) boot::inv.logit(x * logistic.beta[2] + logistic.beta[1])
+
+plot(logistic.func, xlim = c(0, 7))
+```
+
     i. what's the interpretation of the estimated $\hat{\beta}_0$ (the _Intercept_)
     ii. calculate the estimated probability that the Pontiac Firebird has automatic transmission, given its weight
+```{r}
+wt_firebird <- mtcars["Pontiac Firebird", ]$wt
+
+p_firebird_auto <- 1 - logistic.func(wt_firebird)
+p_firebird_auto
+```
+    
     iii. bonus question - plot the logistic function and highlight all the cars where we guessed wrongly, if we used the following "quantizer" function:
     
 \begin{equation}
